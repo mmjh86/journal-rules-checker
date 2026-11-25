@@ -389,8 +389,8 @@ def board_results(c: Crawler) -> tuple[list[Result], dict]:
 # Issues and articles (best effort)
 # --------------------------------------------------------------------------
 
-ARTICLE_URL = re.compile(r"(/article/view/\d+|/article_\d+\.html|/index\.php/[^/]+/article/view/|/articles?/\d+)", re.I)
-ISSUE_URL = re.compile(r"(/issue/view/\d+|/issue_\d+_\d+\.html|/issue/\d+|/volume_\d+)", re.I)
+ARTICLE_URL = re.compile(r"(/article/view/\d+|/article_\d+\.html|/index\.php/[^/]+/article/view/|/articles?/\d+|/vol\d+/iss\d+/\d+/?$)", re.I)
+ISSUE_URL = re.compile(r"(/issue/view/\d+|/issue_\d+_\d+\.html|/issue/\d+|/volume_\d+|/vol\d+/iss\d+/?$)", re.I)
 
 
 def issue_results(c: Crawler, board_members: list[dict], indexed: bool = False) -> list[Result]:
@@ -535,7 +535,7 @@ def run_checks(url: str) -> dict:
                     ("ISSN found: " + ", ".join(ids[:4]) + ". Confirm the country of registration (Iraq) at portal.issn.org.") if ids
                     else "No ISSN found on the pages read.",
                     ev(issn, 1) + [(f"https://portal.issn.org/resource/ISSN/{ids[0].upper()}", "ISSN portal record")] if ids else ev(issn, 1)))
-    dep = c.search(r"(Deposit|Legal deposit|رقم الإيداع|رقم الايداع|الإيداع|National Library)")
+    dep = c.search(r"(deposit (number|no)|legal deposit|رقم الإيداع|رقم الايداع|دار الكتب والوثائق)")
     R.append(Result(G, "A6", "Legal deposit number from the National Library and Archives, Baghdad, on the cover",
                     PASS if dep else MANUAL, ("Deposit number mentioned: \"" + dep[0][1] + "\"") if dep else
                     "No deposit number found on the website. Check the printed or PDF cover.", ev(dep, 1)))
