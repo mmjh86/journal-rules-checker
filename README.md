@@ -1,3 +1,7 @@
+# مدقق ضوابط المجلات العلمية
+
+أدخل رابط موقع المجلة لتحصل على تقرير باللغة العربية يبين مدى استيفائها لضوابط استحداث وإصدار المجلات العلمية الرصينة المحكمة (التعميم ب ت 14838/4 في 2025/12/23) وتوصيات المؤتمر الأول لهيئات تحرير المجلات العراقية (التعميم 9420 في 2026/1/26). الموقع المنشور: https://journal-rules-checker.onrender.com
+
 # Journal Rules Checker
 
 Paste a journal's website link and get a report on how it meets the Iraqi Ministry of Higher Education

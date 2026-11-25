@@ -79,6 +79,33 @@ RANKS = [  # order matters: most specific first
 QUALIFIED_MEMBER = {"Professor", "Associate Professor", "Assistant Professor", "Lecturer"}
 
 
+AR_TERMS = {
+    "Iraq": "العراق", "Malaysia": "ماليزيا", "Egypt": "مصر", "Jordan": "الأردن", "Saudi Arabia": "السعودية",
+    "United Arab Emirates": "الإمارات", "United Kingdom": "المملكة المتحدة", "United States": "الولايات المتحدة",
+    "Turkey": "تركيا", "Iran": "إيران", "Algeria": "الجزائر", "Tunisia": "تونس", "Morocco": "المغرب", "Lebanon": "لبنان",
+    "Syria": "سوريا", "Kuwait": "الكويت", "Qatar": "قطر", "Oman": "عُمان", "Bahrain": "البحرين", "Yemen": "اليمن",
+    "Libya": "ليبيا", "Sudan": "السودان", "Palestine": "فلسطين", "India": "الهند", "Pakistan": "باكستان", "China": "الصين",
+    "Russia": "روسيا", "Germany": "ألمانيا", "France": "فرنسا", "Italy": "إيطاليا", "Spain": "إسبانيا", "Canada": "كندا",
+    "Australia": "أستراليا", "New Zealand": "نيوزيلندا", "Japan": "اليابان", "Korea": "كوريا", "Indonesia": "إندونيسيا",
+    "Serbia": "صربيا", "Poland": "بولندا", "Netherlands": "هولندا", "Belgium": "بلجيكا", "Sweden": "السويد",
+    "Switzerland": "سويسرا", "Austria": "النمسا", "Greece": "اليونان", "Portugal": "البرتغال", "Romania": "رومانيا",
+    "Ireland": "أيرلندا", "Brazil": "البرازيل", "Nigeria": "نيجيريا", "South Africa": "جنوب أفريقيا", "Bangladesh": "بنغلاديش",
+    "Thailand": "تايلاند", "Vietnam": "فيتنام", "Singapore": "سنغافورة", "Ukraine": "أوكرانيا", "Hungary": "هنغاريا",
+    "Czech": "التشيك", "Finland": "فنلندا", "Norway": "النرويج", "Denmark": "الدنمارك", "Cyprus": "قبرص",
+    "Professor": "أستاذ", "Associate Professor": "أستاذ مشارك", "Assistant Professor": "أستاذ مساعد",
+    "Lecturer": "مدرس", "Assistant Lecturer": "مدرس مساعد", "Doctor (rank not stated)": "دكتور (اللقب غير محدد)",
+    "Not stated": "غير مذكور", "editor-in-chief": "رئيس التحرير", "editor in chief": "رئيس التحرير",
+    "chief editor": "رئيس التحرير", "managing editor": "مدير التحرير",
+}
+
+
+def ar(term):
+    """Arabic name for a country, academic title or board role (falls back to the original)."""
+    if not term:
+        return term
+    return AR_TERMS.get(term) or AR_TERMS.get(str(term).lower()) or term
+
+
 @dataclass
 class Page:
     url: str
@@ -318,13 +345,13 @@ def board_results(c: Crawler) -> tuple[list[Result], dict]:
     info["members"], info["page"] = members, best.url if best else None
     sec = "Editorial board (14838, Part 2)"
     if not best or len(members) < 3:
-        msg = "Could not find or read an editorial board page." if not best else \
-            "Found the board page but could not split it into members (it may be an image or load by script)."
+        msg = "تعذر العثور على صفحة هيئة التحرير أو قراءتها." if not best else \
+            "تم العثور على صفحة هيئة التحرير لكن تعذر تمييز الأعضاء (قد تكون صورة أو تُحمَّل ببرمجية)."
         for rid, rule in [("B1", "At least 20 members; 75% from outside Iraq; max 10% from any one foreign country"),
                           ("B4", "All members are Lecturer or higher"),
                           ("B5", "Editor-in-chief and managing editor are Assistant Professor or higher"),
                           ("B6", "Preferably 30%-40% of members are Lecturers or Assistant Professors")]:
-            res.append(Result(sec, rid, rule, MANUAL, msg, [(best.url, "Board page")] if best else []))
+            res.append(Result(sec, rid, rule, MANUAL, msg, [(best.url, "صفحة هيئة التحرير")] if best else []))
     else:
         n = len(members)
         countries = Counter(m["country"] for m in members if m["country"])
@@ -337,51 +364,51 @@ def board_results(c: Crawler) -> tuple[list[Result], dict]:
         top_pct = 100 * top_foreign[1] / n if top_foreign else 0
         problems = []
         if n < 20:
-            problems.append(f"only {n} members found (need 20 or more)")
+            problems.append(f"عدد الأعضاء {n} فقط (المطلوب 20 فأكثر)")
         if known and foreign_pct < 75:
-            problems.append(f"{foreign_pct:.0f}% from outside Iraq (need 75%)")
+            problems.append(f"نسبة الأعضاء من خارج العراق {foreign_pct:.0f}% (المطلوب 75%)")
         if top_foreign and top_pct > 10:
-            problems.append(f"{top_pct:.0f}% from {top_foreign[0]} (max 10% per foreign country)")
-        detail = (f"{n} members found; country identified for {known}. Iraq: {iraq}, outside Iraq: {foreign} "
-                  f"({foreign_pct:.0f}%). Countries: " + ", ".join(f"{k} {v}" for k, v in countries.most_common()) + ".")
+            problems.append(f"{top_pct:.0f}% من {ar(top_foreign[0])} (الحد الأعلى 10% لكل بلد خارج العراق)")
+        detail = (f"عدد الأعضاء {n}، وحُدِّد البلد لـ {known} منهم. من داخل العراق: {iraq}، من خارجه: {foreign} "
+                  f"({foreign_pct:.0f}%). البلدان: " + "، ".join(f"{ar(k)} {v}" for k, v in countries.most_common()) + ".")
         if problems:
-            detail += " Problems: " + "; ".join(problems) + "."
+            detail += " المخالفات: " + "؛ ".join(problems) + "."
         status = PASS if not problems and known >= n * 0.8 else (FAIL if problems else WARN)
         res.append(Result(sec, "B1", "At least 20 members; 75% from outside Iraq; max 10% from any one foreign country",
-                          status, detail, [(best.url, "Board page")]))
+                          status, detail, [(best.url, "صفحة هيئة التحرير")]))
 
         ranks = Counter(m["rank"] or "Not stated" for m in members)
         low = [m for m in members if m["rank"] == "Assistant Lecturer"]
         unknown = ranks.get("Not stated", 0) + ranks.get("Doctor (rank not stated)", 0)
         st = FAIL if low else (WARN if unknown else PASS)
         res.append(Result(sec, "B4", "All members are Lecturer or higher", st,
-                          "Titles found: " + ", ".join(f"{k} {v}" for k, v in ranks.most_common()) + "." +
-                          (f" {len(low)} Assistant Lecturer(s) listed." if low else "") +
-                          (f" {unknown} member(s) have no clear title; confirm by hand." if unknown else ""),
-                          [(best.url, "Board page")]))
+                          "الألقاب العلمية: " + "، ".join(f"{ar(k)} {v}" for k, v in ranks.most_common()) + "." +
+                          (f" يوجد {len(low)} بلقب مدرس مساعد." if low else "") +
+                          (f" {unknown} عضواً دون لقب علمي واضح؛ يُتحقق يدوياً." if unknown else ""),
+                          [(best.url, "صفحة هيئة التحرير")]))
 
         heads = [m for m in members if m["role"]]
         if heads:
             bad = [h for h in heads if h["rank"] not in ("Professor", "Associate Professor", "Assistant Professor")]
             res.append(Result(sec, "B5", "Editor-in-chief and managing editor are Assistant Professor or higher",
                               FAIL if bad and all(b["rank"] for b in bad) else (WARN if bad else PASS),
-                              "; ".join(f"{h['role']}: {h['name']} ({h['rank'] or 'title not stated'})" for h in heads),
-                              [(best.url, "Board page")]))
+                              "؛ ".join(f"{ar(h['role'])}: {h['name']} ({ar(h['rank']) if h['rank'] else 'اللقب غير مذكور'})" for h in heads),
+                              [(best.url, "صفحة هيئة التحرير")]))
         else:
             res.append(Result(sec, "B5", "Editor-in-chief and managing editor are Assistant Professor or higher", MANUAL,
-                              "Could not identify the editor-in-chief / managing editor on the board page.",
-                              [(best.url, "Board page")]))
+                              "تعذر تحديد رئيس التحرير / مدير التحرير في صفحة الهيئة.",
+                              [(best.url, "صفحة هيئة التحرير")]))
         mid = ranks.get("Lecturer", 0) + ranks.get("Assistant Professor", 0)
         pct = 100 * mid / n
         res.append(Result(sec, "B6", "Preferably 30%-40% of members are Lecturers or Assistant Professors (advisory)",
-                          PASS if 30 <= pct <= 40 else WARN, f"{pct:.0f}% are Lecturers or Assistant Professors.",
-                          [(best.url, "Board page")]))
+                          PASS if 30 <= pct <= 40 else WARN, f"نسبة المدرسين والأساتذة المساعدين {pct:.0f}%.",
+                          [(best.url, "صفحة هيئة التحرير")]))
     res.append(Result(sec, "B2", "Each member's Scopus h-index is at least 5 (sciences) or 2 (humanities)", MANUAL,
-                      "h-index is not on journal websites. Check each member in Scopus author search.",
-                      [("https://www.scopus.com/freelookup/form/author.uri", "Scopus author lookup")]))
+                      "معامل H-index لا يظهر في مواقع المجلات. يُتحقق من كل عضو في قاعدة سكوبس.",
+                      [("https://www.scopus.com/freelookup/form/author.uri", "البحث عن الباحثين في سكوبس")]))
     res.append(Result(sec, "B3", "Editor-in-chief and managing editor h-index at least 6 (sciences) or 2 (humanities)",
-                      MANUAL, "Check in Scopus author search.",
-                      [("https://www.scopus.com/freelookup/form/author.uri", "Scopus author lookup")]))
+                      MANUAL, "يُتحقق منه في قاعدة سكوبس.",
+                      [("https://www.scopus.com/freelookup/form/author.uri", "البحث عن الباحثين في سكوبس")]))
     return res, info
 
 
@@ -423,23 +450,23 @@ def issue_results(c: Crawler, board_members: list[dict], indexed: bool = False) 
         y = max(years)
         last_full = y - 1 if (y - 1) in years else y
         res.append(Result(sec, "A11", "At least one issue per year", PASS if years.get(last_full) else WARN,
-                          "Issues found by year: " + ", ".join(f"{k}: {years[k]}" for k in sorted(years, reverse=True)[:6]) + ".",
-                          [(issues[0][0], "Issue")] if issues else []))
+                          "الأعداد حسب السنة: " + "، ".join(f"{k}: {years[k]}" for k in sorted(years, reverse=True)[:6]) + ".",
+                          [(issues[0][0], "العدد")] if issues else []))
     else:
         freq = c.search(r"(quarterly|bi-?annual|semi-?annual|monthly|annually|issues? (per|a|each) year|twice a year|نصف سنوية|فصلية|سنوية)")
         res.append(Result(sec, "A11", "At least one issue per year", WARN if freq else MANUAL,
-                          ("Publication frequency stated: \"" + freq[0][1] + "\"") if freq else
-                          "Could not read issue dates from the archive. Check the archive page.", ev(freq)))
+                          ("دورية الإصدار المذكورة: \"" + freq[0][1] + "\"") if freq else
+                          "تعذرت قراءة تواريخ الأعداد من الأرشيف. راجع صفحة الأرشيف.", ev(freq)))
     if latest:
         p, arts = latest
         n = len(arts)
         per_year = max(years.values()) if years else 1
         est = n * per_year
         if indexed:
-            st, why = PASS, "The journal says it is indexed in Scopus/Clarivate, so the 60-paper limit no longer applies. Confirm the indexing."
+            st, why = PASS, "تذكر المجلة أنها مفهرسة في سكوبس/كلاريفيت، فلا ينطبق حد الـ60 بحثاً. تحقق من الفهرسة."
         else:
             st = FAIL if est > 60 else PASS if years else WARN
-            why = f"Latest issue read has about {n} papers; with about {per_year} issue(s) a year that is roughly {est} papers a year (limit 60)."
+            why = f"آخر عدد تمت قراءته يضم نحو {n} بحثاً، ومع نحو {per_year} عدد سنوياً يكون المجموع نحو {est} بحثاً في السنة (الحد 60)."
         res.append(Result(sec, "A10", "No more than 60 papers a year before Scopus/Clarivate indexing", st, why,
                           [(p.url, p.title[:60])]))
         # Board members' share of papers in the issue
@@ -456,19 +483,19 @@ def issue_results(c: Crawler, board_members: list[dict], indexed: bool = False) 
             share = 100 * len(hits) / n if n else 0
             res.append(Result(sec, "A12", "Board members' papers are at most 10% of an issue",
                               FAIL if share > 10 else PASS if n >= 5 else WARN,
-                              f"Board names found among authors of the latest issue: {len(hits)} of {n} papers ({share:.0f}%)."
-                              + (" Names: " + ", ".join(h.title() for h in hits[:8]) + "." if hits else "")
-                              + " Name matching is approximate; confirm by hand.",
+                              f"أسماء من هيئة التحرير بين مؤلفي آخر عدد: {len(hits)} من {n} بحثاً ({share:.0f}%)."
+                              + (" الأسماء: " + "، ".join(h.title() for h in hits[:8]) + "." if hits else "")
+                              + " مطابقة الأسماء تقريبية؛ يُتحقق يدوياً.",
                               [(p.url, p.title[:60])]))
         else:
             res.append(Result(sec, "A12", "Board members' papers are at most 10% of an issue", MANUAL,
-                              "Board names could not be read, so authors were not compared.", [(p.url, p.title[:60])]))
+                              "تعذرت قراءة أسماء الهيئة، فلم تتم مقارنة المؤلفين.", [(p.url, p.title[:60])]))
     else:
         res.append(Result(sec, "A10", "No more than 60 papers a year before Scopus/Clarivate indexing", MANUAL,
-                          "Could not open an issue's table of contents to count papers.",
-                          [(issues[0][0], "Issue")] if issues else []))
+                          "تعذر فتح فهرس أحد الأعداد لعدّ البحوث.",
+                          [(issues[0][0], "العدد")] if issues else []))
         res.append(Result(sec, "A12", "Board members' papers are at most 10% of an issue", MANUAL,
-                          "Could not open an issue's table of contents to compare authors with the board.", []))
+                          "تعذر فتح فهرس أحد الأعداد لمقارنة المؤلفين بأعضاء الهيئة.", []))
     return res
 
 
@@ -503,11 +530,11 @@ def _is_private(url: str) -> bool:
 
 def run_checks(url: str) -> dict:
     if _is_private(url):
-        return {"url": url, "error": "That address points to a private or local network. Enter the journal's public website link.", "results": []}
+        return {"url": url, "error": "هذا الرابط يشير إلى شبكة خاصة أو محلية. أدخل رابط الموقع العام للمجلة.", "results": []}
     c = Crawler(url)
     c.crawl()
     if not c.pages:
-        return {"url": url, "error": "Could not open the website. " + "; ".join(c.errors[:3]), "results": []}
+        return {"url": url, "error": "تعذر فتح الموقع. " + "; ".join(c.errors[:3]), "results": []}
     R: list[Result] = []
     home = c.home
     G, W, Rec = "General controls (14838, Part 1)", "Website (14838, Part 3)", "Recommendations (9420)"
@@ -515,32 +542,32 @@ def run_checks(url: str) -> dict:
     # ---- General controls
     R.append(Result(G, "A1", "Issued by a government body, scientific institution, legal study centre or scientific society",
                     MANUAL if not re.search(r"\.(edu|gov)\.iq$", c.base_host) else PASS,
-                    f"Website domain is {c.host}." + (" A .edu.iq / .gov.iq domain suggests a university or government issuer."
-                                                     if re.search(r"\.(edu|gov)\.iq$", c.base_host) else " Confirm the issuer by hand."),
-                    [(home.url, "Home page")]))
+                    f"نطاق الموقع: {c.host}." + (" النطاق edu.iq أو gov.iq يدل على جهة إصدار جامعية أو حكومية."
+                                                     if re.search(r"\.(edu|gov)\.iq$", c.base_host) else " يُتحقق من جهة الإصدار يدوياً."),
+                    [(home.url, "الصفحة الرئيسية")]))
     R.append(Result(G, "A2", "Issuer commits in writing to fund the journal", MANUAL,
-                    "This is an official letter and is not on the website.", []))
+                    "يثبت بكتاب رسمي ولا يظهر في الموقع.", []))
     iasj = [(p.url, u) for p in c.all_pages() for u, _ in p.links if "iasj" in u.lower()]
     R.append(Result(G, "A3", "Papers indexed on the Iraqi Academic Scientific Journals (IASJ) site", PASS if iasj else WARN,
-                    "Link to IASJ found." if iasj else "No link to IASJ found on the pages read. Search the journal on iasj.rdd.edu.iq.",
-                    [(iasj[0][1], "IASJ link")] if iasj else [("https://iasj.rdd.edu.iq", "IASJ")]))
+                    "يوجد رابط إلى موقع المجلات الأكاديمية العراقية (IASJ)." if iasj else "لم يُعثر على رابط إلى موقع المجلات الأكاديمية العراقية. ابحث عن المجلة في iasj.rdd.edu.iq.",
+                    [(iasj[0][1], "رابط IASJ")] if iasj else [("https://iasj.rdd.edu.iq", "IASJ")]))
     scop = c.search(r"((?i:Scopus|Clarivate|Web of Science|Emerging Sources Citation)|\bESCI\b|\bSCIE\b)", 0)
     R.append(Result(G, "A4", "Indexed in Scopus / Clarivate (accepted subject to R&D changes)", PASS if scop else WARN,
-                    "Scopus/Clarivate mentioned: \"" + scop[0][1] + "\"" if scop else "No mention of Scopus or Clarivate found. Not required, but needed for the 3-5 year plan (9420 #6).",
+                    "ورد ذكر سكوبس/كلاريفيت: \"" + scop[0][1] + "\"" if scop else "لم يرد ذكر سكوبس أو كلاريفيت. ليس شرطاً، لكنه مطلوب ضمن خطة 3-5 سنوات (التعميم 9420، الفقرة 6).",
                     ev(scop, 2)))
     issn = c.search(r"(e-?ISSN|p-?ISSN|Print ISSN|Online ISSN|ISSN)\s*[:\-]?\s*\d{4}\s*-\s*\d{3}[\dXx]")
     ids = sorted({m for p in c.all_pages() for m in re.findall(r"\b\d{4}-\d{3}[\dXx]\b", p.text)
                   if re.search(r"ISSN[^\n]{0,30}" + re.escape(m), p.text)})
     R.append(Result(G, "A5", "Has an electronic and/or print ISSN, registered under Iraq", PASS if ids else FAIL,
-                    ("ISSN found: " + ", ".join(ids[:4]) + ". Confirm the country of registration (Iraq) at portal.issn.org.") if ids
-                    else "No ISSN found on the pages read.",
-                    ev(issn, 1) + [(f"https://portal.issn.org/resource/ISSN/{ids[0].upper()}", "ISSN portal record")] if ids else ev(issn, 1)))
+                    ("الرقم المعياري الدولي (ISSN): " + "، ".join(ids[:4]) + ". تحقق من تسجيله باسم العراق في portal.issn.org.") if ids
+                    else "لم يُعثر على رقم معياري دولي (ISSN).",
+                    ev(issn, 1) + [(f"https://portal.issn.org/resource/ISSN/{ids[0].upper()}", "سجل ISSN")] if ids else ev(issn, 1)))
     dep = c.search(r"(deposit (number|no)|legal deposit|رقم الإيداع|رقم الايداع|دار الكتب والوثائق)")
     R.append(Result(G, "A6", "Legal deposit number from the National Library and Archives, Baghdad, on the cover",
-                    PASS if dep else MANUAL, ("Deposit number mentioned: \"" + dep[0][1] + "\"") if dep else
-                    "No deposit number found on the website. Check the printed or PDF cover.", ev(dep, 1)))
+                    PASS if dep else MANUAL, ("ورد رقم الإيداع: \"" + dep[0][1] + "\"") if dep else
+                    "لم يُعثر على رقم الإيداع في الموقع. راجع الغلاف المطبوع أو ملف PDF.", ev(dep, 1)))
     R.append(Result(G, "A7", "Can be audited online through the journal website", PASS,
-                    f"Website opened and {len(c.all_pages())} pages were read.", [(home.url, "Home page")]))
+                    f"تم فتح الموقع وقراءة {len(c.all_pages())} صفحة.", [(home.url, "الصفحة الرئيسية")]))
     scope_pages = c.find_pages("scope")
     scope_txt = ""
     for p in scope_pages:
@@ -549,19 +576,19 @@ def run_checks(url: str) -> dict:
             scope_txt = paras[0][:400]
             break
     R.append(Result(G, "A9", "Single specialty only", MANUAL,
-                    ("Scope text: \"" + scope_txt + "\". Decide whether this is one specialty.") if scope_txt
-                    else "Read the journal's scope and decide whether it covers one specialty.",
+                    ("نص النطاق: \"" + scope_txt + "\". قرّر هل هو تخصص واحد.") if scope_txt
+                    else "اقرأ نطاق المجلة وقرّر هل يغطي تخصصاً واحداً.",
                     [(p.url, p.title[:60]) for p in scope_pages[:1]]))
     R.append(Result(G, "A13", "Name fits its specialty and is unique", MANUAL,
-                    f"Journal title on the site: \"{home.title[:120]}\". Compare with the scope and search IASJ for duplicates.",
-                    [(home.url, "Home page")]))
+                    f"اسم المجلة في الموقع: \"{home.title[:120]}\". قارنه بالنطاق وابحث في IASJ عن أسماء مطابقة.",
+                    [(home.url, "الصفحة الرئيسية")]))
     plag = c.search(r"(plagiarism|iThenticate|Turnitin|Similarity Check|Crossref Similarity|الاستلال)")
     tools = sorted({t for t in ["iThenticate", "Turnitin", "Similarity Check", "Plagiarism X", "Grammarly"]
                     if any(t.lower() in p.text.lower() for p in c.all_pages())})
     R.append(Result(G, "A14", "Uses an approved plagiarism-checking tool",
                     PASS if tools else (WARN if plag else FAIL),
-                    ("Tool named: " + ", ".join(tools) + ".") if tools else
-                    ("Plagiarism is mentioned but no tool is named." if plag else "No plagiarism policy found."), ev(plag, 2)))
+                    ("البرنامج المذكور: " + "، ".join(tools) + ".") if tools else
+                    ("ورد ذكر الاستلال دون تسمية برنامج الفحص." if plag else "لم يُعثر على سياسة لفحص الاستلال."), ev(plag, 2)))
     tmpl = [(u, t) for u, t in c.files if re.search(r"template|قالب|format", u + " " + t, re.I)]
     tmpl += [(u, t) for u, t in c.find_links("template") if (u, t) not in tmpl]
     style = sorted({s for s in ["IEEE", "APA", "Harvard", "Vancouver", "Chicago", "MLA", "AMA"]
@@ -571,27 +598,27 @@ def run_checks(url: str) -> dict:
                         if c.search(r"\b" + s + r"\b(?=[^\n]{0,40}(style|format|reference|citation))", 0)})
     R.append(Result(G, "A15", "Own paper template on the website with journal and publisher logos and the citation style",
                     PASS if tmpl and style else (WARN if tmpl or style else FAIL),
-                    ("Template file found. " if tmpl else "No template file found. ") +
-                    (("Citation style: " + ", ".join(style) + ".") if style else "Citation style not found.") +
-                    (" Open the template to confirm both logos." if tmpl else ""),
-                    [(u, t[:60] or "Template") for u, t in tmpl[:2]]))
+                    ("يوجد ملف قالب. " if tmpl else "لا يوجد ملف قالب. ") +
+                    (("نمط التوثيق: " + "، ".join(style) + ".") if style else "لم يُذكر نمط التوثيق.") +
+                    (" افتح القالب للتأكد من شعاري المجلة والناشر." if tmpl else ""),
+                    [(u, t[:60] or "القالب") for u, t in tmpl[:2]]))
     arabic_chars = sum(len(re.findall(r"[؀-ۿ]", p.text)) for p in c.all_pages())
     R.append(Result(G, "A16", "Arabic-language journals give names, affiliations, keywords, title and abstract in English",
-                    MANUAL, "Open one Arabic paper and check for the English title, abstract, keywords, author names and affiliations."
-                    if arabic_chars > 500 else "Only applies if the journal publishes in Arabic.", []))
+                    MANUAL, "افتح بحثاً عربياً وتحقق من ترجمة العنوان والخلاصة والكلمات المفتاحية وأسماء الباحثين وأماكن عملهم إلى الإنكليزية."
+                    if arabic_chars > 500 else "تنطبق فقط على المجلات التي تنشر باللغة العربية.", []))
     eth_link, cope_hit, eth_ev = presence(c, "ethics", r"(COPE|Committee on Publication Ethics)")
     R.append(Result(G, "A17", "Clear publication ethics policy following COPE",
                     PASS if eth_link and cope_hit else (WARN if eth_link or cope_hit else FAIL),
-                    ("Ethics page found" if eth_link else "No ethics page found") + "; " +
-                    ("COPE is referenced." if cope_hit else "COPE is not mentioned."), eth_ev))
+                    ("توجد صفحة لأخلاقيات النشر" if eth_link else "لا توجد صفحة لأخلاقيات النشر") + "، " +
+                    ("مع الإشارة إلى COPE." if cope_hit else "دون ذكر COPE."), eth_ev))
     pr = c.search(r"(double[- ]blind|single[- ]blind|peer[- ]review|تحكيم)")
     blind = c.search(r"(double[- ]blind|single[- ]blind|open peer review)")
     R.append(Result(G, "A18", "Transparent, specialised peer-review process", PASS if blind else (WARN if pr else FAIL),
-                    ("Review type stated: \"" + blind[0][1] + "\"") if blind else
-                    ("Peer review is mentioned but the process is not described." if pr else "No peer-review description found."),
+                    ("نوع التحكيم المذكور: \"" + blind[0][1] + "\"") if blind else
+                    ("ورد ذكر التحكيم دون وصف لآليته." if pr else "لم يُعثر على وصف لعملية التحكيم."),
                     ev(blind or pr, 2)))
     R.append(Result(G, "A19", "Follows R&D Department circulars, including approval of the editor-in-chief and board", MANUAL,
-                    "Administrative: check the ministry approval letters.", []))
+                    "إجراء إداري: راجع كتب مصادقة الوزارة.", []))
 
     # ---- Board + issues
     br, binfo = board_results(c)
@@ -603,16 +630,16 @@ def run_checks(url: str) -> dict:
     en_ok = sum(len(re.findall(r"[A-Za-z]", p.text)) for p in c.all_pages()) > 2000
     ar_ok = bool(ar_links) or arabic_chars > 1500
     R.append(Result(W, "C1", "Website in both Arabic and English", PASS if ar_ok and en_ok else FAIL,
-                    ("Arabic version link found. " if ar_links else ("Arabic text found. " if arabic_chars > 1500 else "No Arabic version found. ")) +
-                    ("English content found." if en_ok else "Little English content found."),
-                    [(u, t[:40] or "Arabic") for u, t in ar_links[:1]]))
+                    ("يوجد رابط للنسخة العربية. " if ar_links else ("يوجد محتوى عربي. " if arabic_chars > 1500 else "لا توجد نسخة عربية. ")) +
+                    ("يوجد محتوى إنكليزي." if en_ok else "المحتوى الإنكليزي قليل."),
+                    [(u, t[:40] or "العربية") for u, t in ar_links[:1]]))
     indep = not re.search(r"(iasj\.net|iasj\.rdd\.edu\.iq|rdd\.edu\.iq)", c.host)
     R.append(Result(W, "C2", "Independent website, separate from the R&D Department's journals site", PASS if indep else FAIL,
-                    f"Website host: {c.host}.", [(home.url, "Home page")]))
+                    f"عنوان الموقع: {c.host}.", [(home.url, "الصفحة الرئيسية")]))
     dois = sorted({m for p in c.all_pages() for m in re.findall(r"\b10\.\d{4,9}/[^\s\"<>]+", p.text + " ".join(u for u, _ in p.links))})
     prefixes = sorted({d.split("/")[0] for d in dois})
     R.append(Result(W, "C3", "Journal has DOI", PASS if dois else FAIL,
-                    ("DOI prefix found: " + ", ".join(prefixes[:3]) + f" ({len(dois)} DOIs seen).") if dois else "No DOIs found on the pages read.",
+                    ("بادئة DOI: " + "، ".join(prefixes[:3]) + f" (ظهر {len(dois)} معرّفاً).") if dois else "لم يُعثر على معرّفات DOI في الصفحات المقروءة.",
                     [("https://doi.org/" + dois[0], dois[0][:60])] if dois else []))
     for rid, kind, label, rx in [
         ("C4a", "scope", "Aims and scope page", None),
@@ -632,25 +659,25 @@ def run_checks(url: str) -> dict:
             hit2 = c.search(r"(reviewer guidelines|guide for reviewers|instructions for reviewers)")
             if hit2:
                 st, evd = PASS, ev(hit2, 1)
-        R.append(Result(W, rid, "Website has: " + label, st, "Found." if st == PASS else "Not found on the pages read.", evd))
+        R.append(Result(W, rid, "Website has: " + label, st, "موجود." if st == PASS else "غير موجود في الصفحات المقروءة.", evd))
 
     # ---- Recommendations 9420
     heads = [m for m in binfo["members"] if m["role"]]
     admin = [h for h in heads if re.search(r"(Dean|President of the University|University President|Head of (the )?Department|عميد|رئيس الجامعة|رئيس قسم)", h["text"], re.I)]
     R.append(Result(Rec, "D1", "Editor-in-chief / managing editor do not also hold an administrative post (president, dean, head of department)",
                     FAIL if admin else MANUAL,
-                    ("Possible administrative post: " + "; ".join(a["text"][:120] for a in admin)) if admin else
-                    "No administrative title seen next to the editor-in-chief; confirm by hand.",
-                    [(binfo["page"], "Board page")] if binfo["page"] else []))
+                    ("منصب إداري محتمل: " + "؛ ".join(a["text"][:120] for a in admin)) if admin else
+                    "لا يظهر منصب إداري بجانب رئيس التحرير؛ يُتحقق يدوياً.",
+                    [(binfo["page"], "صفحة هيئة التحرير")] if binfo["page"] else []))
     coerce = c.search(r"(self-citation|coercive citation|citation manipulation)")
     R.append(Result(Rec, "D4", "Policy against coercive self-citation", PASS if coerce else WARN,
-                    "Citation manipulation is addressed." if coerce else "No statement on coercive or excessive self-citation found.",
+                    "توجد سياسة بشأن التلاعب بالاستشهادات." if coerce else "لا توجد سياسة بشأن الاستشهاد الذاتي القسري.",
                     ev(coerce, 1)))
     ai = c.search(r"(generative AI|AI[- ]generated|AI tools|use of AI|artificial intelligence tools|use of artificial intelligence|ChatGPT|large language model|الذكاء الاصطناعي)")
     R.append(Result(Rec, "D10", "Uses modern tools and has a position on AI in publishing", PASS if ai else WARN,
-                    "AI is addressed on the website." if ai else "No AI policy or AI tools mentioned.", ev(ai, 1)))
+                    "يتناول الموقع استخدام الذكاء الاصطناعي." if ai else "لا توجد سياسة أو أدوات للذكاء الاصطناعي.", ev(ai, 1)))
     R.append(Result(Rec, "D6", "3-5 year plan to enter Scopus / Clarivate with a follow-up committee", MANUAL,
-                    "Internal plan; not usually on the website.", []))
+                    "خطة داخلية لا تظهر عادة في الموقع.", []))
 
     counts = Counter(r.status for r in R)
     auto = [r for r in R if r.status != MANUAL]
